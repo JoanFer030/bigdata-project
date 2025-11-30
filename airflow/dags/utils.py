@@ -2,9 +2,9 @@ import os
 import duckdb
 
 def connect_datalake():
-    PROJECT_PATH = "include/project-bigdata"
+    PROJECT_PATH = "include/datalake"
     METADATA_PATH = os.path.join(PROJECT_PATH, "metadata.db")
-    DATA_PATH = os.path.join(PROJECT_PATH, "ducklake_data")
+    DATA_PATH = os.path.join(PROJECT_PATH, "data")
 
     # Crear directorios si no existen
     os.makedirs(DATA_PATH, exist_ok=True)

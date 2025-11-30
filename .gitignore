@@ -5,4 +5,11 @@
 resources/
 
 # Ignorar carpeta de proyecto bigdata en Airflow
-/airflow/include/project-bigdata/
+/airflow/include/
+
+# Ignorar todos los directorios __pycache__ en cualquier nivel
+**/__pycache__/
+
+# Ignorar también los archivos .pyc y .pyo por si aparecen fuera
+*.pyc
+*.pyo
