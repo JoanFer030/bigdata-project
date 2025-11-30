@@ -1,0 +1,8 @@
+# Ignorar entorno virtual
+.venv/
+
+# Ignorar recursos
+resources/
+
+# Ignorar carpeta de proyecto bigdata en Airflow
+/airflow/include/project-bigdata/
