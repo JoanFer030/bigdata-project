@@ -1,5 +1,6 @@
 import os
 import duckdb
+from dotenv import load_dotenv
 
 def connect_datalake():
     PROJECT_PATH = "include/datalake"
@@ -36,19 +37,56 @@ def connect_datalake():
 
     return con
 
-# def close_datalake():
+def connect_datalake_rustfs():
+    load_dotenv('include/.env', override=True) 
+    RUSTFS_HOST = os.getenv('RUSTFS_HOST', 'localhost')
+    RUSTFS_PORT = os.getenv('RUSTFS_PORT', '8080')
+    RUSTFS_USER = os.getenv('RUSTFS_USER', 'admin')
+    RUSTFS_PASSWORD = os.getenv('RUSTFS_PASSWORD', 'password')
+    RUSTFS_BUCKET = os.getenv('RUSTFS_BUCKET', 'mitma')
+    RUSTFS_SSL = os.getenv('RUSTFS_SSL', 'false')
 
-# # Crear tabla desde archivo local
-# con.execute("""
-# CREATE OR REPLACE TABLE viajes_distritos AS (
-#     SELECT * FROM './resources/20230101_Viajes_distritos_v2.csv.gz'
-# )
-# """)
+    # Postgres Configuration
+    POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
+    POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'password')
+    POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
+    POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
+    POSTGRES_DB = os.getenv('POSTGRES_DB', 'muceim')
 
-# # Ver los datos
-# resultado = con.execute("""
-# SELECT * FROM viajes_distritos LIMIT 100;
-# """).fetchdf()
+    # Construct S3 Endpoint with protocol
+    S3_ENDPOINT = f"{RUSTFS_HOST}:{RUSTFS_PORT}"
 
-# print(resultado)
-# con.close()
+    con = duckdb.connect()
+
+    # Instalamos para crear el datalake
+    con.execute("""
+        INSTALL ducklake;
+        LOAD ducklake;
+        INSTALL postgres;
+        LOAD postgres;
+        INSTALL httpfs;
+        LOAD httpfs;
+    """)
+
+    ##############################################
+    ###                DATALAKE                ###
+    ##############################################
+    # Configure S3 Secrets for RustFS
+    con.execute(f"SET s3_endpoint='{S3_ENDPOINT}';")
+    con.execute(f"SET s3_access_key_id='{RUSTFS_USER}';")
+    con.execute(f"SET s3_secret_access_key='{RUSTFS_PASSWORD}';")
+    con.execute(f"SET s3_use_ssl={RUSTFS_SSL};")
+    con.execute("SET s3_url_style='path';")
+    con.execute("SET preserve_insertion_order=false;")
+    con.execute("SET max_temp_directory_size='40GiB';")
+
+    # Attach DuckLake with Postgres Catalog
+    postgres_connection_string = f"dbname={POSTGRES_DB} host={POSTGRES_HOST} user={POSTGRES_USER} password={POSTGRES_PASSWORD} port={POSTGRES_PORT}"
+    attach_query = f"""
+        ATTACH 'ducklake:postgres:{postgres_connection_string}' AS ducklake (DATA_PATH 's3://{RUSTFS_BUCKET}/');
+    """
+    con.execute(attach_query)
+
+    con.execute("USE ducklake;")
+
+    return con

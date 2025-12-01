@@ -1,0 +1,64 @@
+services:
+  # 1. RustFS (Object Storage)
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - TZ=${TZ}
+      - MINIO_ROOT_USER=${RUSTFS_USER}
+      - MINIO_ROOT_PASSWORD=${RUSTFS_PASSWORD}
+      - RUSTFS_ACCESS_KEY=${RUSTFS_USER}
+      - RUSTFS_SECRET_KEY=${RUSTFS_PASSWORD}
+      - RUSTFS_ERASURE_SET_DRIVE_COUNT=1
+    volumes:
+      - rustfs_data:/data
+    networks:
+      - duck_net
+
+  # 2. PostgreSQL (Metadata Database)
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgresql
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - duck_net
+
+  # 3. Portainer
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "9443:9443"
+      - "9002:9000"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - duck_net
+
+networks:
+  duck_net:
+    driver: bridge
+
+volumes:
+  rustfs_data:
+  pg_data:
+  portainer_data:

@@ -13,3 +13,4 @@ resources/
 # Ignorar también los archivos .pyc y .pyo por si aparecen fuera
 *.pyc
 *.pyo
+*.env
