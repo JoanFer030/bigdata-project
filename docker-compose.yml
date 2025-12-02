@@ -4,6 +4,7 @@ services:
     image: rustfs/rustfs:latest
     container_name: rustfs
     restart: unless-stopped
+    # IMPORTANTE: Eliminado 'network_mode: bridge' para permitir DNS custom
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -17,7 +18,7 @@ services:
     volumes:
       - rustfs_data:/data
     networks:
-      - duck_net
+      - airflow_shared
 
   # 2. PostgreSQL (Metadata Database)
   postgres:
@@ -25,7 +26,7 @@ services:
     container_name: postgresql
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "30432:5432"
     environment:
       - TZ=${TZ}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -34,7 +35,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
-      - duck_net
+      - airflow_shared
 
   # 3. Portainer
   portainer:
@@ -52,11 +53,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
     networks:
-      - duck_net
+      - airflow_shared
 
 networks:
-  duck_net:
-    driver: bridge
+  airflow_shared:
+    name: airflow_9558a3_airflow # Conectamos a la red existente de tu Airflow
+    external: true
 
 volumes:
   rustfs_data:
