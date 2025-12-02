@@ -8,5 +8,5 @@
 airflow:
   pools:
     - pool_name: bronze_ingestion_pool
-      pool_slot: 3
+      pool_slot: 15
       pool_description: Pool para limitar tareas de ingesta en capa Bronze

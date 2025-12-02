@@ -9,13 +9,13 @@ import os
 from airflow.sdk import task
 
 # Add parent directory to path to import utils
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils import load_zonificacion, get_ducklake_connection
 
 
 @task
-def load_zonification_data(zone_type: str = 'distritos'):
+def BRONZE_mitma_zonification(zone_type: str = 'distritos'):
     """
     Airflow task to load zonification data into DuckDB for the specified type.
     
@@ -43,6 +43,8 @@ def load_zonification_data(zone_type: str = 'distritos'):
     
     msg = f"Successfully loaded zonification data for {zone_type}: {record_count:,} records"
     print(f"[TASK] {msg}")
+    print(f"[TASK] Sample data from {table_name}:")
+    print(con.execute(f"SELECT * FROM {table_name} LIMIT 10").fetchdf())
     
     return {
         'status': 'success',

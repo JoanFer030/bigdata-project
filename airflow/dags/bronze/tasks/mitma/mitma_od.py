@@ -1,6 +1,6 @@
 """
-Airflow task for loading MITMA overnight_stay (pernoctaciones) data into Bronze layer.
-Handles overnight stay data for distritos, municipios, and GAU zone types.
+Airflow task for loading MITMA OD (Origin-Destination) matrices into Bronze layer.
+Handles viajes (trips) data for distritos, municipios, and GAU zone types.
 """
 
 import sys
@@ -8,15 +8,15 @@ import os
 from airflow.sdk import task
 
 # Add parent directory to path to import utils
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils import get_mitma_urls, create_and_merge_table, get_ducklake_connection
 
 
 @task
-def load_overnight_stay(zone_type: str = 'distritos', start_date: str = None, end_date: str = None):
+def BRONZE_mitma_od(zone_type: str = 'distritos', start_date: str = None, end_date: str = None):
     """
-    Airflow task to load overnight stay data for a specific type and date range.
+    Airflow task to load OD matrices for the specified type and date range.
     
     Parameters:
     - zone_type: 'distritos', 'municipios', 'gau' (default: 'distritos')
@@ -26,9 +26,9 @@ def load_overnight_stay(zone_type: str = 'distritos', start_date: str = None, en
     Returns:
     - Dict with task status and info
     """
-    dataset = 'overnight_stay'
+    dataset = 'od'
     
-    print(f"[TASK] Starting overnight_stay load for {zone_type} from {start_date} to {end_date}")
+    print(f"[TASK] Starting OD matrix load for {zone_type} from {start_date} to {end_date}")
     
     # Get connection (singleton - will be reused)
     con = get_ducklake_connection()
@@ -54,8 +54,10 @@ def load_overnight_stay(zone_type: str = 'distritos', start_date: str = None, en
     count = con.execute(f"SELECT COUNT(*) as count FROM {table_name}").fetchdf()
     record_count = int(count['count'].iloc[0])
     
-    msg = f"Successfully loaded overnight_stay data for {zone_type}: {record_count:,} records"
+    msg = f"Successfully loaded OD matrices for {zone_type}: {record_count:,} records"
     print(f"[TASK] {msg}")
+    print(f"[TASK] Sample data from {table_name}:")
+    print(con.execute(f"SELECT * FROM {table_name} LIMIT 10").fetchdf())
     
     return {
         'status': 'success',

@@ -366,6 +366,86 @@ def create_and_merge_table(con, dataset, zone_type, urls, lake_layer='bronze'):
     print(f"Table {table_name} merged successfully with {len(merge_keys)} key columns.")
 
 
+def create_and_merge_table_from_json(con, table_name, url, key_columns=None, lake_layer='bronze'):
+    """
+    Generic function to create table and merge data from JSON API endpoint using DuckDB's read_json.
+    
+    Parameters:
+    - con: DuckDB connection
+    - table_name: Name of the table to create/merge into (without layer prefix)
+    - url: URL that returns JSON data (array of objects)
+    - key_columns: List of column names to use as merge keys. If None, uses all columns.
+    - lake_layer: layer name (default: 'bronze')
+    """
+    
+    full_table_name = f'{lake_layer}_{table_name}'
+    
+    print(f"Fetching JSON data from {url}...")
+    
+    # Step 1: Create table if not exists using DuckDB's read_json
+    con.execute(f"""
+        CREATE TABLE IF NOT EXISTS {full_table_name} AS
+        SELECT 
+            *,
+            CURRENT_TIMESTAMP AS loaded_at,
+            '{url}' AS source_url
+        FROM read_json('{url}', format='array')
+        LIMIT 0;
+    """)
+    
+    # Step 2: Get column names from the table (excluding audit columns)
+    columns_df = con.execute(f"""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = '{full_table_name}'
+        AND column_name NOT IN ('loaded_at', 'source_url')
+        ORDER BY ordinal_position;
+    """).fetchdf()
+    
+    data_columns = columns_df['column_name'].tolist()
+    
+    # Step 3: Determine merge keys
+    if key_columns is None:
+        merge_keys = data_columns
+    else:
+        merge_keys = key_columns
+        # Validate that key columns exist
+        missing_keys = [k for k in merge_keys if k not in data_columns]
+        if missing_keys:
+            raise ValueError(f"Key columns {missing_keys} not found in data. Available columns: {data_columns}")
+    
+    print(f"Using merge keys: {merge_keys}")
+    
+    # Step 4: Build ON clause
+    on_clause = " AND ".join([f'target."{key}" = source."{key}"' for key in merge_keys])
+    
+    # Step 5: MERGE for idempotent incremental loads
+    merge_query = f"""
+        MERGE INTO {full_table_name} AS target
+        USING (
+            SELECT 
+                *,
+                CURRENT_TIMESTAMP AS loaded_at,
+                '{url}' AS source_url
+            FROM read_json('{url}', format='array')
+        ) AS source
+        ON {on_clause}
+        WHEN MATCHED THEN
+            UPDATE SET *
+        WHEN NOT MATCHED THEN
+            INSERT *;
+    """
+    
+    con.execute(merge_query)
+    
+    # Get row count
+    count_result = con.execute(f"SELECT COUNT(*) as count FROM {full_table_name}").fetchdf()
+    row_count = int(count_result.iloc[0, 0])
+    
+    print(f"Table {full_table_name} merged successfully with {len(merge_keys)} key columns. Total rows: {row_count}")
+    return row_count
+
+
 def get_mitma_zoning_urls(zone_type):
     """
     Fetches MITMA Zoning URLs (Shapefiles + CSVs) from RSS feed using Regex.
