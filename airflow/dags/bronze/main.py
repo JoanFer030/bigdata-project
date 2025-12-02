@@ -7,7 +7,10 @@ from datetime import datetime
 from airflow.sdk import dag
 from airflow.models.param import Param
 
-# Import tasks
+# Import infrastructure setup tasks
+from bronze.tasks.setup_infrastructure import verify_connections, ensure_rustfs_bucket
+
+# Import data ingestion tasks
 from bronze.tasks.mitma_od import load_od_matrices
 from bronze.tasks.mitma_people_day import load_people_day
 from bronze.tasks.mitma_overnights import load_overnight_stay
@@ -46,6 +49,21 @@ def bronze_mitma_pipeline():
     For multiple zone types: distritos, municipios, GAU
     """
     
+    # =======================================================
+    # STEP 1: Infrastructure Setup (runs first)
+    # =======================================================
+    # Verify that PostgreSQL and RustFS are accessible
+    verify_task = verify_connections()
+    
+    # Ensure bucket exists (creates if needed)
+    bucket_task = ensure_rustfs_bucket()
+    
+    # Setup tasks run sequentially: verify -> create bucket
+    verify_task >> bucket_task
+    
+    # =======================================================
+    # STEP 2: Data Ingestion (runs after setup)
+    # =======================================================
     # Define zone types to process
     zone_types = ['distritos', 'municipios', 'gau']
     
@@ -75,7 +93,8 @@ def bronze_mitma_pipeline():
             zone_type=zone_type
         )
         
-        # All tasks can run in parallel (no dependencies between them)
+        # Setup must complete before data ingestion starts
+        bucket_task >> [od_task, people_task, overnight_task, zonif_task]
 
 
 # Instantiate the DAG

@@ -56,23 +56,66 @@ class DuckLakeConnectionManager:
         return self._connection
     
     def _create_connection(self):
-        """Create a new DuckLake connection with RustFS and Postgres."""
-        
-        RUSTFS_HOST = os.getenv('RUSTFS_HOST', 'localhost')
-        RUSTFS_PORT = os.getenv('RUSTFS_PORT', '9000')
-        RUSTFS_USER = os.getenv('RUSTFS_USER', 'admin')
-        RUSTFS_PASSWORD = os.getenv('RUSTFS_PASSWORD', 'password')
-        RUSTFS_BUCKET = os.getenv('RUSTFS_BUCKET', 'mitma')
-        RUSTFS_SSL = os.getenv('RUSTFS_SSL', 'false')
-        
-        POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
-        POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'password')
-        POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
-        POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
-        POSTGRES_DB = os.getenv('POSTGRES_DB', 'muceim')
-        
-        S3_ENDPOINT = f"{RUSTFS_HOST}:{RUSTFS_PORT}"
-        
+        """
+        Create a new DuckLake connection with RustFS and Postgres.
+        Usa las conexiones de Airflow cuando está disponible, sino usa variables de entorno.
+        """
+        # Intentar usar conexiones de Airflow primero
+        try:
+            from airflow.hooks.base import BaseHook
+            from airflow.models import Variable
+            
+            print("🔗 Usando conexiones de Airflow...")
+            
+            # Obtener configuración de PostgreSQL desde Airflow
+            pg_conn = BaseHook.get_connection('postgres_datos_externos')
+            POSTGRES_HOST = pg_conn.host
+            POSTGRES_PORT = pg_conn.port or 5432
+            POSTGRES_DB = pg_conn.schema
+            POSTGRES_USER = pg_conn.login
+            POSTGRES_PASSWORD = pg_conn.password
+            
+            # Obtener configuración de RustFS desde Airflow
+            s3_conn = BaseHook.get_connection('rustfs_s3_conn')
+            s3_extra = s3_conn.extra_dejson
+            endpoint_url = s3_extra.get('endpoint_url', 'http://rustfs:9000')
+            S3_ENDPOINT = endpoint_url.replace('http://', '').replace('https://', '')
+            
+            # Las credenciales AWS están en extra_dejson
+            RUSTFS_USER = s3_extra.get('aws_access_key_id', 'admin')
+            RUSTFS_PASSWORD = s3_extra.get('aws_secret_access_key', 'muceim-duckduck.2025!')
+            RUSTFS_SSL = 'true' if 'https' in endpoint_url else 'false'
+            
+            # Obtener bucket desde Variables de Airflow
+            RUSTFS_BUCKET = Variable.get('RUSTFS_BUCKET', default_var='mitma')
+            
+            print(f"   ✅ PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+            print(f"   ✅ RustFS: {S3_ENDPOINT}")
+            print(f"   ✅ Bucket: {RUSTFS_BUCKET}")
+            
+        except (ImportError, Exception) as e:
+            # Fallback a variables de entorno si Airflow no está disponible
+            print(f"⚠️  Airflow no disponible ({e}), usando variables de entorno...")
+            
+            RUSTFS_HOST = os.getenv('RUSTFS_HOST', 'rustfs')
+            RUSTFS_PORT = os.getenv('RUSTFS_PORT', '9000')
+            RUSTFS_USER = os.getenv('RUSTFS_USER', 'admin')
+            RUSTFS_PASSWORD = os.getenv('RUSTFS_PASSWORD', 'muceim-duckduck.2025!')
+            RUSTFS_BUCKET = os.getenv('RUSTFS_BUCKET', 'mitma')
+            RUSTFS_SSL = os.getenv('RUSTFS_SSL', 'false')
+            
+            POSTGRES_USER = os.getenv('POSTGRES_USER', 'admin')
+            POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'muceim-duckduck.2025!')
+            POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'postgresql')
+            POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
+            POSTGRES_DB = os.getenv('POSTGRES_DB', 'mitma')
+            
+            S3_ENDPOINT = f"{RUSTFS_HOST}:{RUSTFS_PORT}"
+            
+            print(f"   ✅ PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+            print(f"   ✅ RustFS: {S3_ENDPOINT}")
+            print(f"   ✅ Bucket: {RUSTFS_BUCKET}")
+    
         # Create connection
         con = duckdb.connect()
         

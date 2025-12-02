@@ -6,20 +6,7 @@
 # For issues create an issue ticket here: https://github.com/astronomer/astro-cli/issues
 
 airflow:
-  connections:
-    - conn_id:
-      conn_type:
-      conn_host:
-      conn_schema:
-      conn_login:
-      conn_password:
-      conn_port:
-      conn_extra:
-        example_extra_field: example-value
   pools:
-    - pool_name:
-      pool_slot:
-      pool_description:
-  variables:
-    - variable_name:
-      variable_value:
+    - pool_name: bronze_ingestion_pool
+      pool_slot: 3
+      pool_description: Pool para limitar tareas de ingesta en capa Bronze
