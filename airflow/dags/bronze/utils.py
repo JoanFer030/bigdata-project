@@ -13,6 +13,8 @@ import os
 from dotenv import load_dotenv
 from contextlib import contextmanager
 
+load_dotenv('.env', override=True)
+
 
 # ==========================================
 # CONNECTION MANAGEMENT
@@ -55,7 +57,6 @@ class DuckLakeConnectionManager:
     
     def _create_connection(self):
         """Create a new DuckLake connection with RustFS and Postgres."""
-        load_dotenv('include/.env', override=True)
         
         RUSTFS_HOST = os.getenv('RUSTFS_HOST', 'localhost')
         RUSTFS_PORT = os.getenv('RUSTFS_PORT', '9000')
