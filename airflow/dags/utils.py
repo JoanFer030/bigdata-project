@@ -50,7 +50,7 @@ def connect_datalake_rustfs():
     POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
     POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'password')
     POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
-    POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
+    POSTGRES_PORT = os.getenv('POSTGRES_PORT', '30432')
     POSTGRES_DB = os.getenv('POSTGRES_DB', 'muceim')
 
     # Construct S3 Endpoint with protocol

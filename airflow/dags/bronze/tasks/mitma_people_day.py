@@ -14,7 +14,7 @@ from utils import get_mitma_urls, create_and_merge_table, get_ducklake_connectio
 
 
 @task
-def load_people_day(zone_type: str = 'distritos', start_date: str = '2022-03-01', end_date: str = '2022-03-03'):
+def load_people_day(zone_type: str = 'distritos', start_date: str = None, end_date: str = None):
     """
     Airflow task to load people_day data for a specific type and date range.
     

@@ -8,10 +8,10 @@ from airflow.sdk import dag
 from airflow.models.param import Param
 
 # Import tasks
-from tasks.mitma_od import load_od_matrices
-from tasks.mitma_people_day import load_people_day
-from tasks.mitma_overnights import load_overnight_stay
-from tasks.mitma_zonification import load_zonification_data
+from bronze.tasks.mitma_od import load_od_matrices
+from bronze.tasks.mitma_people_day import load_people_day
+from bronze.tasks.mitma_overnights import load_overnight_stay
+from bronze.tasks.mitma_zonification import load_zonification_data
 
 
 @dag(
@@ -21,13 +21,11 @@ from tasks.mitma_zonification import load_zonification_data
     catchup=False,
     tags=['bronze', 'mitma', 'data-ingestion'],
     params={
-        "start_date": Param(
-            "2022-03-01",
+        "start": Param(
             type="string",
             description="Start date for data loading (YYYY-MM-DD)"
         ),
-        "end_date": Param(
-            "2022-03-07",
+        "end": Param(
             type="string",
             description="End date for data loading (YYYY-MM-DD)"
         ),
@@ -56,20 +54,20 @@ def bronze_mitma_pipeline():
         # Time series tasks
         od_task = load_od_matrices.override(task_id=f"load_od_{zone_type}")(
             zone_type=zone_type,
-            start_date='{{ params.start_date }}',
-            end_date='{{ params.end_date }}'
+            start_date='{{ params.start }}',
+            end_date='{{ params.end }}'
         )
         
         people_task = load_people_day.override(task_id=f"load_people_day_{zone_type}")(
             zone_type=zone_type,
-            start_date='{{ params.start_date }}',
-            end_date='{{ params.end_date }}'
+            start_date='{{ params.start }}',
+            end_date='{{ params.end }}'
         )
         
         overnight_task = load_overnight_stay.override(task_id=f"load_overnight_stay_{zone_type}")(
             zone_type=zone_type,
-            start_date='{{ params.start_date }}',
-            end_date='{{ params.end_date }}'
+            start_date='{{ params.start }}',
+            end_date='{{ params.end }}'
         )
         
         # Zonification task
