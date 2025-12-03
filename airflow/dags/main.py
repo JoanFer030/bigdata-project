@@ -20,7 +20,7 @@ from bronze.tasks.mitma_ine_relations import BRONZE_mitma_ine_relations
 from bronze.tasks.ine.ine_municipios import BRONZE_ine_municipios
 from bronze.tasks.ine.ine_empresas import BRONZE_ine_empresas_municipio
 from bronze.tasks.ine.ine_poblacion import BRONZE_ine_poblacion_municipio
-from bronze.tasks.ine.ine_renta import BRONZE_ine_renta_municipio
+from bronze.tasks.ine.ine_renta import BRONZE_ine_renta_municipio, get_ine_renta_urls
 from bronze.tasks.spanish_holidays import BRONZE_load_spanish_holidays
 
 from silver.mitma.mitma_zonification import SILVER_mitma_zonification
@@ -139,11 +139,13 @@ def main_pipeline():
         year=ine_year
     )
     
-    ine_renta_task = BRONZE_ine_renta_municipio(
-        year=ine_year
-    )
+    # Dynamic Task Mapping for Renta
+    renta_urls = get_ine_renta_urls(year=ine_year)
     
-    ine_tasks = [ine_municipios_task, ine_empresas_task, ine_poblacion_task, ine_renta_task]
+    # Map the ingestion task over the list of URLs
+    ine_renta_tasks = BRONZE_ine_renta_municipio.partial(year=ine_year).expand(url=renta_urls)
+    
+    ine_tasks = [ine_municipios_task, ine_empresas_task, ine_poblacion_task, ine_renta_tasks]
 
     holidays_task = BRONZE_load_spanish_holidays.override(task_id="BRONZE_spanish_holidays")()
     od_tasks.append(holidays_task)
@@ -177,7 +179,9 @@ def main_pipeline():
     tasks_empresas_proc >> empresas_proc_task
     tasks_poblacion_proc = [ine_poblacion_task, ine_municipios_task, relations_task]
     tasks_poblacion_proc >> poblacion_proc_task
-    tasks_renta_proc = [ine_renta_task, ine_municipios_task, relations_task]
+    
+    # Renta silver depends on all mapped renta tasks completing
+    tasks_renta_proc = [ine_renta_tasks, ine_municipios_task, relations_task]
     tasks_renta_proc >> renta_proc_task
 
 # Instantiate the DAG

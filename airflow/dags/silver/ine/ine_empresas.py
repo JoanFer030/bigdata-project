@@ -27,7 +27,6 @@ def SILVER_ine_empresas():
                 UNNEST(e.Data) AS t(data_item)
             WHERE e.Data IS NOT NULL 
             AND len(e.Data) > 0
-            AND length(e.COD) = 9
         )
         SELECT DISTINCT ON (ef.COD)
             m.Codigo AS codigo_ine,
@@ -37,10 +36,14 @@ def SILVER_ine_empresas():
             r.gau_mitma
         FROM empresas_flat ef
         LEFT JOIN bronze_ine_municipios m 
-            ON ef.nombre ILIKE m.nombre
+            ON ef.Nombre ILIKE m.Nombre
         LEFT JOIN bronze_mitma_ine_relations r
             ON m.Codigo = r.municipio_ine
-        WHERE ef.tipo ILIKE '%CNAE%';
+        WHERE ef.Tipo ILIKE '%CNAE%' AND (
+            r.distrito_mitma IS NOT NULL 
+            OR r.municipio_mitma IS NOT NULL 
+            OR r.gau_mitma IS NOT NULL
+        )
     """)
 
     # Count & preview

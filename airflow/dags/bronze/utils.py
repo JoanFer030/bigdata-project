@@ -127,6 +127,8 @@ class DuckLakeConnectionManager:
             LOAD postgres;
             INSTALL httpfs;
             LOAD httpfs;
+            INSTALL spatial;
+            LOAD spatial;
         """)
         
         # Configure S3 for RustFS
@@ -366,30 +368,34 @@ def create_and_merge_table(con, dataset, zone_type, urls, lake_layer='bronze'):
     print(f"Table {table_name} merged successfully with {len(merge_keys)} key columns.")
 
 
-def create_and_merge_table_from_json(con, table_name, url, key_columns=None, lake_layer='bronze'):
+def create_and_merge_table_from_json(con, table_name, urls, key_columns=None, lake_layer='bronze'):
     """
-    Generic function to create table and merge data from JSON API endpoint using DuckDB's read_json.
+    Generic function to create table and merge data from JSON API endpoint(s) using DuckDB's read_json.
     
     Parameters:
     - con: DuckDB connection
     - table_name: Name of the table to create/merge into (without layer prefix)
-    - url: URL that returns JSON data (array of objects)
+    - urls: Single URL (string) or list of URLs that return JSON data (array of objects)
     - key_columns: List of column names to use as merge keys. If None, uses all columns.
     - lake_layer: layer name (default: 'bronze')
     """
     
     full_table_name = f'{lake_layer}_{table_name}'
     
-    print(f"Fetching JSON data from {url}...")
+    # Normalize urls to list
+    if isinstance(urls, str):
+        urls = [urls]
     
-    # Step 1: Create table if not exists using DuckDB's read_json
+    print(f"Fetching JSON data from {len(urls)} URL(s)...")
+    
+    # Step 1: Create table if not exists using DuckDB's read_json with first URL
     con.execute(f"""
         CREATE TABLE IF NOT EXISTS {full_table_name} AS
         SELECT 
             *,
             CURRENT_TIMESTAMP AS loaded_at,
-            '{url}' AS source_url
-        FROM read_json('{url}', format='array')
+            '{urls[0]}' AS source_url
+        FROM read_json('{urls[0]}', format='array')
         LIMIT 0;
     """)
     
@@ -419,15 +425,24 @@ def create_and_merge_table_from_json(con, table_name, url, key_columns=None, lak
     # Step 4: Build ON clause
     on_clause = " AND ".join([f'target."{key}" = source."{key}"' for key in merge_keys])
     
-    # Step 5: MERGE for idempotent incremental loads
-    merge_query = f"""
-        MERGE INTO {full_table_name} AS target
-        USING (
+    # Step 5: Build UNION ALL query for all URLs
+    union_queries = []
+    for url in urls:
+        union_queries.append(f"""
             SELECT 
                 *,
                 CURRENT_TIMESTAMP AS loaded_at,
                 '{url}' AS source_url
             FROM read_json('{url}', format='array')
+        """)
+    
+    combined_source = "\nUNION ALL\n".join(union_queries)
+    
+    # Step 6: MERGE for idempotent incremental loads
+    merge_query = f"""
+        MERGE INTO {full_table_name} AS target
+        USING (
+            {combined_source}
         ) AS source
         ON {on_clause}
         WHEN MATCHED THEN
