@@ -27,6 +27,11 @@ def SILVER_mitma_zonification():
     con = get_ducklake_connection()
 
     con.execute("""
+        INSTALL spatial;
+        LOAD spatial;
+    """)
+
+    con.execute("""
         CREATE OR REPLACE TABLE silver_zones AS
         WITH base AS (
             SELECT

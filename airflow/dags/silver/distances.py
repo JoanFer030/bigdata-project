@@ -20,6 +20,11 @@ def SILVER_distances():
     con = get_ducklake_connection()
 
     con.execute("""
+        INSTALL spatial;
+        LOAD spatial;
+    """)
+
+    con.execute("""
         CREATE OR REPLACE TABLE silver_distances AS
         SELECT
             o.id AS origin,

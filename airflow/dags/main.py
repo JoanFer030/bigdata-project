@@ -21,11 +21,16 @@ from bronze.tasks.ine.ine_municipios import BRONZE_ine_municipios
 from bronze.tasks.ine.ine_empresas import BRONZE_ine_empresas_municipio
 from bronze.tasks.ine.ine_poblacion import BRONZE_ine_poblacion_municipio
 from bronze.tasks.ine.ine_renta import BRONZE_ine_renta_municipio
+from bronze.tasks.spanish_holidays import BRONZE_load_spanish_holidays
 
 from silver.mitma.mitma_zonification import SILVER_mitma_zonification
 from silver.mitma.mitma_overnights import SILVER_mitma_overnight_stay
 from silver.mitma.mitma_people_day import SILVER_mitma_people_day
+from silver.mitma.mitma_od import SILVER_mitma_od
 from silver.distances import SILVER_distances
+from silver.ine.ine_empresas import SILVER_ine_empresas
+from silver.ine.ine_poblacion import SILVER_ine_poblacion
+from silver.ine.ine_renta import SILVER_ine_renta
 
 
 @dag(
@@ -80,6 +85,7 @@ def main_pipeline():
     zonification_tasks = []
     overnight_tasks = []
     people_tasks = []
+    od_tasks = []
     # Create tasks for each zone type
     for zone_type in zone_types:
         # Time series tasks
@@ -109,6 +115,7 @@ def main_pipeline():
         zonification_tasks.append(zonif_task)
         overnight_tasks.append(overnight_task)
         people_tasks.append(people_task)
+        od_tasks.append(od_task)
         mitma_tasks.extend([od_task, people_task, overnight_task, zonif_task])
 
     # Relations task (doesn't depend on zone_type loop)
@@ -137,20 +144,41 @@ def main_pipeline():
     )
     
     ine_tasks = [ine_municipios_task, ine_empresas_task, ine_poblacion_task, ine_renta_task]
+
+    holidays_task = BRONZE_load_spanish_holidays.override(task_id="BRONZE_spanish_holidays")()
+    od_tasks.append(holidays_task)
         
     # Setup must complete before any data ingestion starts
     bucket_task >> mitma_tasks
     bucket_task >> ine_tasks
+    bucket_task >> holidays_task
+
+    # =======================================================
+    # STEP 4: Silver transformations
+    # =======================================================
 
     zonif_all_task = SILVER_mitma_zonification.override(task_id="SILVER_zonification")()
     overnight_all_task = SILVER_mitma_overnight_stay.override(task_id="SILVER_overnights")()
     people_all_task = SILVER_mitma_people_day.override(task_id="SILVER_people_day")()
+    od_all_task = SILVER_mitma_od.override(task_id="SILVER_od")()
     distances_task = SILVER_distances.override(task_id="SILVER_distances")()
+
+    empresas_proc_task = SILVER_ine_empresas.override(task_id="SILVER_business")()
+    poblacion_proc_task = SILVER_ine_poblacion.override(task_id="SILVER_population")()
+    renta_proc_task = SILVER_ine_renta.override(task_id="SILVER_income")()
 
     zonification_tasks >> zonif_all_task
     overnight_tasks >> overnight_all_task
     zonif_all_task >> distances_task
     people_tasks >> people_all_task
+    od_tasks >> od_all_task
+
+    tasks_empresas_proc = [ine_empresas_task, ine_municipios_task, relations_task]
+    tasks_empresas_proc >> empresas_proc_task
+    tasks_poblacion_proc = [ine_poblacion_task, ine_municipios_task, relations_task]
+    tasks_poblacion_proc >> poblacion_proc_task
+    tasks_renta_proc = [ine_renta_task, ine_municipios_task, relations_task]
+    tasks_renta_proc >> renta_proc_task
 
 # Instantiate the DAG
 dag_instance = main_pipeline()
