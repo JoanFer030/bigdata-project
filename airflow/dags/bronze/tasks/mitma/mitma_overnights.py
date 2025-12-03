@@ -5,7 +5,7 @@ Handles overnight stay data for distritos, municipios, and GAU zone types.
 
 import sys
 import os
-from airflow.sdk import task
+from airflow.sdk import task # type: ignore
 
 # Add parent directory to path to import utils
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

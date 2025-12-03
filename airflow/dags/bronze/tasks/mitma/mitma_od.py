@@ -13,7 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from utils import get_mitma_urls, create_and_merge_table, get_ducklake_connection
 
 
-@task
+@task(
+    max_active_tis_per_dag=1
+)
 def BRONZE_mitma_od(zone_type: str = 'distritos', start_date: str = None, end_date: str = None):
     """
     Airflow task to load OD matrices for the specified type and date range.

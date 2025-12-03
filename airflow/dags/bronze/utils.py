@@ -10,7 +10,7 @@ import pandas as pd
 import geopandas as gpd
 import duckdb
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 from contextlib import contextmanager
 
 load_dotenv('.env', override=True)
@@ -62,8 +62,8 @@ class DuckLakeConnectionManager:
         """
         # Intentar usar conexiones de Airflow primero
         try:
-            from airflow.hooks.base import BaseHook
-            from airflow.models import Variable
+            from airflow.hooks.base import BaseHook # type: ignore
+            from airflow.models import Variable # type: ignore
             
             print("🔗 Usando conexiones de Airflow...")
             

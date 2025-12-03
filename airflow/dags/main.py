@@ -22,6 +22,11 @@ from bronze.tasks.ine.ine_empresas import BRONZE_ine_empresas_municipio
 from bronze.tasks.ine.ine_poblacion import BRONZE_ine_poblacion_municipio
 from bronze.tasks.ine.ine_renta import BRONZE_ine_renta_municipio
 
+from silver.mitma.mitma_zonification import SILVER_mitma_zonification
+from silver.mitma.mitma_overnights import SILVER_mitma_overnight_stay
+from silver.mitma.mitma_people_day import SILVER_mitma_people_day
+from silver.distances import SILVER_distances
+
 
 @dag(
     dag_id="main_data_pipeline",
@@ -72,6 +77,9 @@ def main_pipeline():
     
     mitma_tasks = []
     
+    zonification_tasks = []
+    overnight_tasks = []
+    people_tasks = []
     # Create tasks for each zone type
     for zone_type in zone_types:
         # Time series tasks
@@ -98,6 +106,9 @@ def main_pipeline():
             zone_type=zone_type
         )
         
+        zonification_tasks.append(zonif_task)
+        overnight_tasks.append(overnight_task)
+        people_tasks.append(people_task)
         mitma_tasks.extend([od_task, people_task, overnight_task, zonif_task])
 
     # Relations task (doesn't depend on zone_type loop)
@@ -131,6 +142,15 @@ def main_pipeline():
     bucket_task >> mitma_tasks
     bucket_task >> ine_tasks
 
+    zonif_all_task = SILVER_mitma_zonification.override(task_id="SILVER_zonification")()
+    overnight_all_task = SILVER_mitma_overnight_stay.override(task_id="SILVER_overnights")()
+    people_all_task = SILVER_mitma_people_day.override(task_id="SILVER_people_day")()
+    distances_task = SILVER_distances.override(task_id="SILVER_distances")()
+
+    zonification_tasks >> zonif_all_task
+    overnight_tasks >> overnight_all_task
+    zonif_all_task >> distances_task
+    people_tasks >> people_all_task
 
 # Instantiate the DAG
 dag_instance = main_pipeline()

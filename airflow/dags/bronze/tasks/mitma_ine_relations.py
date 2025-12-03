@@ -30,7 +30,7 @@ def BRONZE_mitma_ine_relations():
     create_and_merge_table(con, None, table_name, [url])
     
     # Get count for verification
-    full_table_name = f'bronze_{table_name}'
+    full_table_name = f'bronze_mitma_{table_name}'
     count = con.execute(f"SELECT COUNT(*) as count FROM {full_table_name}").fetchdf()
     record_count = int(count['count'].iloc[0])
     

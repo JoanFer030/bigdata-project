@@ -1,6 +1,6 @@
 import os
 import duckdb
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 
 
 def connect_datalake():
@@ -78,6 +78,8 @@ def connect_datalake_rustfs():
         LOAD postgres;
         INSTALL httpfs;
         LOAD httpfs;
+        INSTALL spatial;
+        LOAD spatial;
     """)
 
     # Configurar credenciales S3 para RustFS
@@ -110,7 +112,7 @@ def connect_datalake_from_airflow():
     - postgres_datos_externos: Para el catálogo de metadatos (PostgreSQL)
     - rustfs_s3_conn: Para almacenar los datos (RustFS/S3)
     """
-    from airflow.hooks.base import BaseHook
+    from airflow.hooks.base import BaseHook # type: ignore
     
     # Obtener configuración de PostgreSQL desde Airflow
     pg_conn = BaseHook.get_connection('postgres_datos_externos')
@@ -141,6 +143,8 @@ def connect_datalake_from_airflow():
         LOAD postgres;
         INSTALL httpfs;
         LOAD httpfs;
+        INSTALL spatial;
+        LOAD spatial;
     """)
     
     # Configurar credenciales S3 para RustFS
