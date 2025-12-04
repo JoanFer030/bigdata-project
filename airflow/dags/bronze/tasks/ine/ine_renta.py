@@ -13,7 +13,7 @@ from utils import create_and_merge_table_from_json, get_ducklake_connection
 
 
 @task
-def get_ine_renta_urls(year: int = 2023):
+def BRONZE_ine_renta_urls(year: int = 2023):
     """
     Generate the list of URLs for INE Renta data.
     """
@@ -33,27 +33,29 @@ def get_ine_renta_urls(year: int = 2023):
     return urls
 
 @task
-def BRONZE_ine_renta_municipio(url: str, year: int = 2023):
+def BRONZE_ine_renta_municipio(urls: list, year: int = 2023):
     """
-    Load renta from INE datasource for a specific URL.
-    Designed to be mapped over a list of URLs for concurrent execution.
+    Load renta from INE datasource for a list of URLs into the bronze table.
     
     Parameters:
-    - url: The specific INE table URL to load
+    - urls: List of INE table URLs to load
     - year: Year (for metadata/logging)
-    """
-    table_name = 'ine_renta_municipio'
     
-    print(f"[TASK] Starting INE Renta load for year {year} from {url}")
+    Returns:
+    - Status dictionary
+    """
+    print(f"[TASK] Starting INE Renta load for year {year} from {len(urls)} URLs")
     
     # Get connection (singleton - will be reused)
     con = get_ducklake_connection()
     
     # Use 'COD' as the primary key
+    # We write directly to the final table 'ine_renta_municipio'
+    # create_and_merge_table_from_json adds 'bronze_' prefix -> 'bronze_ine_renta_municipio'
     row_count = create_and_merge_table_from_json(
         con,
-        table_name, 
-        url,
+        'ine_renta_municipio', 
+        urls,
         key_columns=['COD']
     )
     
@@ -63,9 +65,7 @@ def BRONZE_ine_renta_municipio(url: str, year: int = 2023):
     return {
         'status': 'success',
         'message': msg,
-        'year': year,
         'records': row_count,
-        'table_name': f'bronze_{table_name}',
-        'url': url
+        'table_name': 'bronze_ine_renta_municipio'
     }
 

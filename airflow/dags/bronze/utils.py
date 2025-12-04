@@ -713,3 +713,82 @@ def load_zonificacion(con, zone_type, lake_layer='bronze'):
     con.unregister('temp_zonificacion')
     
     print(f"Table {table_name} merged successfully with {len(df)} records.")
+
+
+def merge_from_staging_tables(con, target_table, staging_tables, key_columns=None, lake_layer='bronze'):
+    """
+    Merges data from multiple staging tables into the target table and drops the staging tables.
+    Useful for Dynamic Task Mapping where each task writes to a staging table.
+    
+    Parameters:
+    - con: DuckDB connection
+    - target_table: Name of the final table (without layer prefix)
+    - staging_tables: List of staging table names (including layer prefix if applicable)
+    - key_columns: List of columns to use as merge keys
+    - lake_layer: Layer prefix for the target table
+    """
+    full_target_name = f'{lake_layer}_{target_table}'
+    
+    if not staging_tables:
+        print("No staging tables to merge.")
+        return 0
+        
+    print(f"Merging {len(staging_tables)} staging tables into {full_target_name}...")
+    
+    # Ensure target table exists using the first staging table as a template
+    # We assume staging tables have the correct schema
+    first_staging = staging_tables[0]
+    
+    con.execute(f"""
+        CREATE TABLE IF NOT EXISTS {full_target_name} AS 
+        SELECT * FROM {first_staging} LIMIT 0
+    """)
+    
+    # Get columns for merge keys if not provided
+    if key_columns is None:
+        columns_df = con.execute(f"""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = '{full_target_name}'
+            AND column_name NOT IN ('loaded_at', 'source_url', 'source_file')
+            ORDER BY ordinal_position;
+        """).fetchdf()
+        merge_keys = columns_df['column_name'].tolist()
+    else:
+        merge_keys = key_columns
+        
+    print(f"Using merge keys: {merge_keys}")
+    on_clause = " AND ".join([f'target."{key}" = source."{key}"' for key in merge_keys])
+    
+    # Merge each staging table
+    for staging_table in staging_tables:
+        print(f"Merging {staging_table}...")
+        
+        # Check if staging table exists (it might have been dropped if retried or something)
+        try:
+            con.execute(f"SELECT 1 FROM {staging_table} LIMIT 1")
+        except:
+            print(f"Warning: Staging table {staging_table} not found or empty. Skipping.")
+            continue
+
+        merge_query = f"""
+            MERGE INTO {full_target_name} AS target
+            USING {staging_table} AS source
+            ON {on_clause}
+            WHEN MATCHED THEN
+                UPDATE SET *
+            WHEN NOT MATCHED THEN
+                INSERT *;
+        """
+        con.execute(merge_query)
+        
+        # Drop staging table
+        con.execute(f"DROP TABLE IF EXISTS {staging_table}")
+        
+    # Get final count
+    count_result = con.execute(f"SELECT COUNT(*) as count FROM {full_target_name}").fetchdf()
+    row_count = int(count_result.iloc[0, 0])
+    
+    print(f"Successfully merged all staging tables. Total rows: {row_count}")
+    return row_count
+
