@@ -57,7 +57,7 @@ services:
 
 networks:
   airflow_shared:
-    name: airflow_886f83_airflow # Conectamos a la red existente de tu Airflow
+    name: airflow_9558a3_airflow # Conectamos a la red existente de tu Airflow
     external: true
 
 volumes:
